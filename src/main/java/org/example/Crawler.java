@@ -1,123 +1,133 @@
 package org.example;
 
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class Crawler {
-    private int depth = 0; // Maximum depth to crawl
-    private String url;
-    String targetLanguage;
-    String sourceLanguage;
-    private HashSet<String> visitedUrls; // Set of visited URLs
-    private HashSet<String> linksFromWebpage;
-    private HashSet<String> brokenLinks;
+public class Crawler implements Runnable {
+    private final String url;
+    private final int currentDepth;
+    private final int maxDepth;
+    private final ConcurrentHashSet<String> visitedUrls;
+    private final ExecutorService executorService;
+    private final ConcurrentHashMap<String, Webpage> crawledPages;
+    private final CountDownLatch depthLatch;
+    private final AtomicInteger activeThreads;
+    private final String sourceLanguage;
+    private final String targetLanguage;
+    private final boolean shouldTranslate;
 
-    HashSet<Webpage> crawledPages;
 
-    public Crawler(String url, String sourceLanguage, String targetLanguage, int depth) {
-        this.visitedUrls = new HashSet<>();
+    public Crawler(String url, int currentDepth, int maxDepth,
+                   ConcurrentHashSet<String> visitedUrls,
+                   ExecutorService executorService,
+                   ConcurrentHashMap<String, Webpage> crawledPages,
+                   CountDownLatch depthLatch,
+                   AtomicInteger activeThreads,
+                   String sourceLanguage,
+                   String targetLanguage,
+                   boolean shouldTranslate
+    ) {
         this.url = url;
-        this.targetLanguage = targetLanguage;
-        this.depth = depth;
+        this.currentDepth = currentDepth;
+        this.maxDepth = maxDepth;
+        this.visitedUrls = visitedUrls;
+        this.executorService = executorService;
+        this.crawledPages = crawledPages;
+        this.depthLatch = depthLatch;
+        this.activeThreads = activeThreads;
         this.sourceLanguage = sourceLanguage;
-        crawledPages = new HashSet<>();
-    }
-    public void mainCrawler(String url, int depth)
-    {
-        Webpage webpage = new Webpage(url,depth,targetLanguage,sourceLanguage);
-        crawl(url,depth, webpage);
-        //translateAndWriteToFile(webpage);
-        Translate translate = new Translate();
-        //translate.translateHeaders(webpage.getHeadingsFromWebpage(),targetLanguage,sourceLanguage);
+        this.targetLanguage = targetLanguage;
+        this.shouldTranslate = shouldTranslate;
     }
 
-    private void crawl(String url, int depth, Webpage webpage) {
-        linksFromWebpage = new HashSet<>();
-        brokenLinks = new HashSet<>();
-        webpage = new Webpage(url,depth,targetLanguage,sourceLanguage);
-        if (depth > this.depth || visitedUrls.contains(url)) {
-            return;
-        }
-        //webpage.setSource(Language.GERMAN);
-        //webpage.setTarget(Language.ENGLISH);
-        visitedUrls.add(url);
-        crawledPages.add(webpage);
+    @Override
+    public void run() {
         try {
-            Document document = Jsoup.connect(url).get();
-            Elements hTags = document.select("h1, h2, h3, h4, h5, h6");
-            addHeadingsToCrawledWebsite(hTags, webpage);
-            Elements links = document.select("a[href]");
-            checkWebpageLinks(links,webpage);
-            //Recursive call of the crawl Method
-            for (Element link : links) {
-                crawl(link.absUrl("href"), depth + 1, webpage);
+            if (currentDepth > maxDepth || !visitedUrls.add(url)) {
+                return;
             }
-        } catch (Exception e2) {
-            System.err.println("Could not crawl " + url + ": " + e2.getMessage());
+
+            activeThreads.incrementAndGet();
+            processPage();
+        } finally {
+            activeThreads.decrementAndGet();
+            depthLatch.countDown();
         }
     }
-    private void addHeadingsToCrawledWebsite(Elements hTags, Webpage webpage)
-    {
-        if(!hTags.select("h1").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h1",hTags.select("h1").text());
-        }
-        if(!hTags.select("h2").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h2",hTags.select("h2").text());
-        }
-        if(!hTags.select("h3").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h3",hTags.select("h3").text());
-        }
-        if(!hTags.select("h4").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h4",hTags.select("h4").text());
-        }
-        if(!hTags.select("h5").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h5",hTags.select("h5").text());
-        }
-        if(!hTags.select("h6").text().isEmpty()) {
-            webpage.addHeadingToWebpage("h6",hTags.select("h6").text());
-        }
-    }
-    private void checkWebpageLinks(Elements links, Webpage webpage)
-    {
+
+    private void processPage() {
         try {
-            for (Element link : links) {
-                String href = link.absUrl("href");
-                URL linkResponseChecker = new URL(href);
-                HttpURLConnection httpLinkResponseChecker = (HttpURLConnection) linkResponseChecker.openConnection();
-                httpLinkResponseChecker.setRequestProperty("User-Agent", "curl/7.64.1");
-                httpLinkResponseChecker.setConnectTimeout(15000);
-                httpLinkResponseChecker.setReadTimeout(15000);
-                httpLinkResponseChecker.setRequestMethod("GET"); //this is important, some websites don't allow head request
-                if (httpLinkResponseChecker.getResponseCode() == 200) {
-                    linksFromWebpage.add(href);
-                }
-                if (httpLinkResponseChecker.getResponseCode() != 200) {
-                    brokenLinks.add(href);
-                    //webpage.addBrokenLink(href);
-                }
-                httpLinkResponseChecker.disconnect();
+            Document document = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0")
+                    .timeout(5000)
+                    .get();
+
+            Webpage webpage = new Webpage(url, currentDepth, sourceLanguage, targetLanguage);
+            processHeaders(document, webpage);
+            processLinks(document, webpage);
+
+            if (shouldTranslate && !sourceLanguage.equals(targetLanguage)) {
+                Translate translator = new Translate();
+                translator.translateHeaders(webpage, targetLanguage, sourceLanguage);
             }
-            webpage.setLinksFromWebpage(linksFromWebpage);
-            webpage.setBrokenLinks(brokenLinks);
 
-        }
-        catch (Exception ex)
-        {
-            System.err.println("Error in Crawling: " + url + ": " + ex.getMessage());
+
+            crawledPages.put(url, webpage);
+
+        } catch (Exception e) {
+            System.err.println("Error processing " + url + ": " + e.getMessage());
         }
     }
-    public HashSet<Webpage> getAllWebpages()
-    {
-        return crawledPages;
+
+    private void processHeaders(Document document, Webpage webpage) {
+        Elements headers = document.select("h1, h2, h3, h4, h5, h6");
+        for (Element header : headers) {
+            String headerTag = header.tagName();
+            webpage.addHeadingToWebpage(headerTag, header.text());
+        }
     }
 
+    private void processLinks(Document document, Webpage webpage) {
+        Elements links = document.select("a[href]");
+        ConcurrentHashSet<String> pageLinks = new ConcurrentHashSet<>();
+        int validLinksCount = 0;
+
+        for (Element link : links) {
+            String href = link.absUrl("href");
+            if (URLValidator.checkIfValidUrl(href)) {
+                pageLinks.add(href);
+                if (currentDepth < maxDepth) {
+                    if (validLinksCount < 50) {
+                        submitNewCrawlerTask(href, null);
+                        validLinksCount++;
+                    }
+                }
+            }
+        }
+
+        webpage.setLinksFromWebpage(new HashSet<>(pageLinks.getSet()));
+    }
+
+    private void submitNewCrawlerTask(String newUrl, CountDownLatch linkLatch) {
+        Crawler newCrawler = new Crawler(
+                newUrl,
+                currentDepth + 1,
+                maxDepth,
+                visitedUrls,
+                executorService,
+                crawledPages,
+                linkLatch,
+                activeThreads,
+                sourceLanguage,
+                targetLanguage,
+                shouldTranslate
+        );
+        executorService.submit(newCrawler);
+    }
 }

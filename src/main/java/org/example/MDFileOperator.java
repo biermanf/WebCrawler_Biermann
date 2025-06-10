@@ -6,25 +6,32 @@ import net.steppschuh.markdowngenerator.text.heading.Heading;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Collection;
 
 public class MDFileOperator {
     String fileName = "pagereport.md";
     FileWriter fileWriter;
+
     public MDFileOperator() throws IOException {
         this.fileWriter = new FileWriter(fileName);
     }
-    public void generateFileWithContent(Webpage webpage) {
+
+    public void generateFileWithContent(Collection<Webpage> webpages) {
         try {
-            buildMainData(webpage);
-            buildHeadingData(webpage);
-            buildValidLinks(webpage);
-            buildBrokenLinks(webpage);
+            for (Webpage webpage : webpages) {
+                buildMainData(webpage);
+                buildHeadingData(webpage);
+                buildValidLinks(webpage);
+                buildBrokenLinks(webpage);
+                // Trennlinie zwischen den Websites
+                fileWriter.write("\n---\n\n");
+            }
             fileWriter.close();
-        } catch (IOException e)
-        {
+        } catch (IOException e) {
             System.out.println("Error writing file: " + e.getMessage());
         }
     }
+
     private void buildMainData(Webpage webpage)
     {
         String buildMainData = new BoldText("Website: " + webpage.getUrl()) + "\n" +

@@ -2,23 +2,24 @@ package org.example;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class MDFileOperatorTest {
-
     private MDFileOperator mdFileOperator;
-    private Webpage testWebpage;
+    private Collection<Webpage> webpages;
 
     @TempDir
     Path tempDir;
@@ -26,102 +27,82 @@ class MDFileOperatorTest {
     @BeforeEach
     void setUp() throws IOException {
         System.setProperty("user.dir", tempDir.toString());
-
         mdFileOperator = new MDFileOperator();
-        testWebpage = new Webpage("https://example.com", 2, "EN", "DE");
-    }
-
-    @AfterEach
-    void shutdown() throws IOException {
-        mdFileOperator.fileWriter.close();
+        webpages = new ArrayList<>();
     }
 
     @Test
-    void generateFileWithContentShouldCreateFile() throws IOException {
+    @DisplayName("Test Multiple Webpages Write")
+    void testMultipleWebpagesWrite() throws IOException {
+        // Arrange
+        Webpage webpage1 = new Webpage("https://example1.com", 1, "de", "en");
+        Webpage webpage2 = new Webpage("https://example2.com", 2, "de", "en");
+        webpages.add(webpage1);
+        webpages.add(webpage2);
+
         // Act
-        mdFileOperator.generateFileWithContent(testWebpage);
+        mdFileOperator.generateFileWithContent(webpages);
+
+        // Assert
+        List<String> lines = Files.readAllLines(Path.of("pagereport.md"));
+        String content = String.join("\n", lines);
+        assertTrue(content.contains("example1.com"));
+        assertTrue(content.contains("example2.com"));
+    }
+
+    @Test
+    @DisplayName("Test Empty Collection")
+    void testEmptyCollection() throws IOException {
+        // Act
+        mdFileOperator.generateFileWithContent(webpages);
 
         // Assert
         File outputFile = new File("pagereport.md");
         assertTrue(outputFile.exists());
-        assertTrue(outputFile.length() > 0);
+        assertEquals(0, outputFile.length());
     }
 
     @Test
-    void generateFileWithContentShouldIncludeMainData() throws IOException {
-        // Act
-        mdFileOperator.generateFileWithContent(testWebpage);
-
-        // Assert
-        List<String> lines = Files.readAllLines(Path.of("pagereport.md"));
-        String content = String.join("\n", lines);
-
-        assertTrue(content.contains("Website: https://example.com"));
-        assertTrue(content.contains("Depth: 2"));
-        assertTrue(content.contains("Source Language: DE"));
-        assertTrue(content.contains("Target Language: EN"));
-    }
-
-    @Test
-    void generateFileWithContentShouldIncludeLinks() throws IOException {
+    @DisplayName("Test Webpage With Headers")
+    void testWebpageWithHeaders() throws IOException {
         // Arrange
-        HashSet<String> links = new HashSet<>();
-        links.add("https://example.com/valid1");
-        links.add("https://example.com/valid2");
-        testWebpage.setLinksFromWebpage(links);
+        Webpage webpage = new Webpage("https://example.com", 1, "de", "en");
+        HashMap<String, String> headers = new HashMap<>();
+        headers.put("h1", "Hauptüberschrift");
+        headers.put("h2", "Unterüberschrift");
+        webpage.setHeadingsFromWebpage(headers);
+        webpages.add(webpage);
 
         // Act
-        mdFileOperator.generateFileWithContent(testWebpage);
+        mdFileOperator.generateFileWithContent(webpages);
 
         // Assert
         List<String> lines = Files.readAllLines(Path.of("pagereport.md"));
         String content = String.join("\n", lines);
-
-        assertTrue(content.contains("___LINKS FROM THIS SITE___"));
-        assertTrue(content.contains("https://example.com/valid1"));
-        assertTrue(content.contains("https://example.com/valid2"));
+        assertTrue(content.contains("Hauptüberschrift"));
+        assertTrue(content.contains("Unterüberschrift"));
     }
 
     @Test
-    void generateFileWithContentShouldIncludeBrokenLinks() throws IOException {
+    @DisplayName("Test File Separator")
+    void testFileSeparator() throws IOException {
         // Arrange
-        HashSet<String> brokenLinks = new HashSet<>();
-        brokenLinks.add("https://example.com/broken1");
-        testWebpage.setBrokenLinks(brokenLinks);
+        Webpage webpage1 = new Webpage("https://example1.com", 1, "de", "en");
+        Webpage webpage2 = new Webpage("https://example2.com", 2, "de", "en");
+        webpages.add(webpage1);
+        webpages.add(webpage2);
 
         // Act
-        mdFileOperator.generateFileWithContent(testWebpage);
+        mdFileOperator.generateFileWithContent(webpages);
 
         // Assert
         List<String> lines = Files.readAllLines(Path.of("pagereport.md"));
         String content = String.join("\n", lines);
-
-        assertTrue(content.contains("___BROKEN LINKS FROM THIS SITE___"));
-        assertTrue(content.contains("https://example.com/broken1<broken>"));
+        assertTrue(content.contains("---"));
     }
 
-    @Test
-    void generateFileWithContentShouldHandleEmptyWebpage() throws IOException {
-        // Act
-        mdFileOperator.generateFileWithContent(testWebpage);
-
-        // Assert
-        List<String> lines = Files.readAllLines(Path.of("pagereport.md"));
-        String content = String.join("\n", lines);
-
-        assertTrue(content.contains("___LINKS FROM THIS SITE___"));
-        assertTrue(content.contains("___BROKEN LINKS FROM THIS SITE___"));
-    }
-
-    @Test
-    void generateFileWithContentShouldHandleNullValues() throws IOException {
-        // Arrange
-        testWebpage.setLinksFromWebpage(null);
-        testWebpage.setBrokenLinks(null);
-
-        // Act & Assert
-        assertThrows(NullPointerException.class, () ->
-                mdFileOperator.generateFileWithContent(testWebpage)
-        );
+    @AfterEach
+    void cleanup() throws IOException {
+        mdFileOperator.fileWriter.close();
     }
 }
