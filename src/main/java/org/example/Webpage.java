@@ -2,7 +2,6 @@ package org.example;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 
 public class Webpage {
     private HashSet<String> visitedUrls; // Set of visited URLs

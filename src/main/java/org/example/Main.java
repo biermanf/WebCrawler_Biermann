@@ -8,7 +8,7 @@ import java.util.Collection;
 public class Main {
     public static void main(String[] args) {
             System.out.println("Enter your URL like: http://www.example.com");
-            int depth = 0;
+            int depth = 2;
             String url = "";
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
@@ -20,19 +20,17 @@ public class Main {
             if (URLValidator.checkIfValidUrl(url)) {
 
                 int maxThreads = Runtime.getRuntime().availableProcessors();
-                int maxDepth = 2;
-                boolean shouldTranslate = false;
 
                 CrawlerManager manager = new CrawlerManager(
                         maxThreads,
-                        maxDepth
+                        depth
                 );
 
                 manager.startCrawling(url);
                 Collection<Webpage> results = manager.getCrawledPages().values();
 
 
-                MDFileOperator fileOperator = null;
+                MDFileOperator fileOperator;
                 try {
                     fileOperator = new MDFileOperator();
                 } catch (IOException e) {

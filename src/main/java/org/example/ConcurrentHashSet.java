@@ -11,10 +11,6 @@ public class ConcurrentHashSet<E> {
         return set.add(element);
     }
 
-    public boolean contains(E element) {
-        return set.contains(element);
-    }
-
     public Set<E> getSet() {
         return set;
     }

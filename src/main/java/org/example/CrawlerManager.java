@@ -1,6 +1,5 @@
 package org.example;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -20,10 +19,9 @@ public class CrawlerManager {
         this.crawledPages = new ConcurrentHashMap<>();
         this.visitedUrls = new ConcurrentHashSet<>();
         this.activeThreads = new AtomicInteger(0);
-        this.documentFetcher = new DefaultJsoupDocumentFetcher(); // Standard-Implementierung
+        this.documentFetcher = new JsoupDocumentFetcher();
     }
 
-    // Überladener Konstruktor für benutzerdefinierte JsoupDocumentFetcher
     public CrawlerManager(int maxDepth, int threadPoolSize, JsoupDocumentFetcher documentFetcher) {
         this.maxDepth = maxDepth;
         this.executorService = Executors.newFixedThreadPool(threadPoolSize);
