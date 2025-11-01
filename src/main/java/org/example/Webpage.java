@@ -14,18 +14,14 @@ public class Webpage {
 
     private int depth;
 
-    private String targetLanguage;
-    private String sourceLanguage;
 
-    public Webpage(String url, int depth, String targetLanguage, String sourceLanguage) {
+    public Webpage(String url, int depth) {
         this.url = url;
         this.depth = depth;
         visitedUrls = new HashSet<>();
         brokenLinks = new HashSet<>();
         linksFromWebpage = new HashSet<>();
         headingsFromWebpage = new HashMap<>();
-        this.targetLanguage = targetLanguage;
-        this.sourceLanguage = sourceLanguage;
     }
 
     public HashMap<String, String> getHeadingsFromWebpage() {
@@ -80,19 +76,4 @@ public class Webpage {
         this.depth = depth;
     }
 
-    public String getTargetLanguage() {
-        return targetLanguage;
-    }
-
-    public void setTargetLanguage(String targetLanguage) {
-        this.targetLanguage = targetLanguage;
-    }
-
-    public String getSourceLanguage() {
-        return sourceLanguage;
-    }
-
-    public void setSourceLanguage(String sourceLanguage) {
-        this.sourceLanguage = sourceLanguage;
-    }
 }

@@ -18,21 +18,17 @@ public class Crawler implements Runnable {
     private final ConcurrentHashMap<String, Webpage> crawledPages;
     private final CountDownLatch depthLatch;
     private final AtomicInteger activeThreads;
-    private final String sourceLanguage;
-    private final String targetLanguage;
-    private final boolean shouldTranslate;
+    private final JsoupDocumentFetcher documentFetcher;
 
-
-    public Crawler(String url, int currentDepth, int maxDepth,
+    public Crawler(String url,
+                   int currentDepth,
+                   int maxDepth,
                    ConcurrentHashSet<String> visitedUrls,
                    ExecutorService executorService,
                    ConcurrentHashMap<String, Webpage> crawledPages,
                    CountDownLatch depthLatch,
                    AtomicInteger activeThreads,
-                   String sourceLanguage,
-                   String targetLanguage,
-                   boolean shouldTranslate
-    ) {
+                   JsoupDocumentFetcher documentFetcher) {
         this.url = url;
         this.currentDepth = currentDepth;
         this.maxDepth = maxDepth;
@@ -41,9 +37,7 @@ public class Crawler implements Runnable {
         this.crawledPages = crawledPages;
         this.depthLatch = depthLatch;
         this.activeThreads = activeThreads;
-        this.sourceLanguage = sourceLanguage;
-        this.targetLanguage = targetLanguage;
-        this.shouldTranslate = shouldTranslate;
+        this.documentFetcher = documentFetcher;
     }
 
     @Override
@@ -63,20 +57,11 @@ public class Crawler implements Runnable {
 
     private void processPage() {
         try {
-            Document document = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0")
-                    .timeout(5000)
-                    .get();
+            Document document = documentFetcher.fetchDocument(url);
 
-            Webpage webpage = new Webpage(url, currentDepth, sourceLanguage, targetLanguage);
+            Webpage webpage = new Webpage(url, currentDepth);
             processHeaders(document, webpage);
             processLinks(document, webpage);
-
-            if (shouldTranslate && !sourceLanguage.equals(targetLanguage)) {
-                Translate translator = new Translate();
-                translator.translateHeaders(webpage, targetLanguage, sourceLanguage);
-            }
-
 
             crawledPages.put(url, webpage);
 
@@ -84,6 +69,22 @@ public class Crawler implements Runnable {
             System.err.println("Error processing " + url + ": " + e.getMessage());
         }
     }
+
+    private void submitNewCrawlerTask(String newUrl, CountDownLatch linkLatch) {
+        Crawler newCrawler = new Crawler(
+                newUrl,
+                currentDepth + 1,
+                maxDepth,
+                visitedUrls,
+                executorService,
+                crawledPages,
+                linkLatch,
+                activeThreads,
+                documentFetcher
+        );
+        executorService.submit(newCrawler);
+    }
+
 
     private void processHeaders(Document document, Webpage webpage) {
         Elements headers = document.select("h1, h2, h3, h4, h5, h6");
@@ -112,22 +113,5 @@ public class Crawler implements Runnable {
         }
 
         webpage.setLinksFromWebpage(new HashSet<>(pageLinks.getSet()));
-    }
-
-    private void submitNewCrawlerTask(String newUrl, CountDownLatch linkLatch) {
-        Crawler newCrawler = new Crawler(
-                newUrl,
-                currentDepth + 1,
-                maxDepth,
-                visitedUrls,
-                executorService,
-                crawledPages,
-                linkLatch,
-                activeThreads,
-                sourceLanguage,
-                targetLanguage,
-                shouldTranslate
-        );
-        executorService.submit(newCrawler);
     }
 }

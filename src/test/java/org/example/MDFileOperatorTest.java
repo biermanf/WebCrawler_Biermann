@@ -35,8 +35,8 @@ class MDFileOperatorTest {
     @DisplayName("Test Multiple Webpages Write")
     void testMultipleWebpagesWrite() throws IOException {
         // Arrange
-        Webpage webpage1 = new Webpage("https://example1.com", 1, "de", "en");
-        Webpage webpage2 = new Webpage("https://example2.com", 2, "de", "en");
+        Webpage webpage1 = new Webpage("https://example1.com", 1);
+        Webpage webpage2 = new Webpage("https://example2.com", 2);
         webpages.add(webpage1);
         webpages.add(webpage2);
 
@@ -66,7 +66,7 @@ class MDFileOperatorTest {
     @DisplayName("Test Webpage With Headers")
     void testWebpageWithHeaders() throws IOException {
         // Arrange
-        Webpage webpage = new Webpage("https://example.com", 1, "de", "en");
+        Webpage webpage = new Webpage("https://example.com", 1);
         HashMap<String, String> headers = new HashMap<>();
         headers.put("h1", "Hauptüberschrift");
         headers.put("h2", "Unterüberschrift");
@@ -87,8 +87,8 @@ class MDFileOperatorTest {
     @DisplayName("Test File Separator")
     void testFileSeparator() throws IOException {
         // Arrange
-        Webpage webpage1 = new Webpage("https://example1.com", 1, "de", "en");
-        Webpage webpage2 = new Webpage("https://example2.com", 2, "de", "en");
+        Webpage webpage1 = new Webpage("https://example1.com", 1);
+        Webpage webpage2 = new Webpage("https://example2.com", 2);
         webpages.add(webpage1);
         webpages.add(webpage2);
 

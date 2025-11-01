@@ -10,8 +10,6 @@ public class Main {
             System.out.println("Enter your URL like: http://www.example.com");
             int depth = 0;
             String url = "";
-            String sourceLanguage;
-            String targetLanguage;
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             try {
@@ -21,32 +19,18 @@ public class Main {
             }
             if (URLValidator.checkIfValidUrl(url)) {
 
-                System.out.println("Enter your targetLanguage");
-                try {
-                    targetLanguage = LanguageChecker.checkLanguage(reader.readLine());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-                System.out.println("Enter your sourceLanguage");
-
-                try {
-                    sourceLanguage = LanguageChecker.checkLanguage(reader.readLine());
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
                 int maxThreads = Runtime.getRuntime().availableProcessors();
                 int maxDepth = 2;
                 boolean shouldTranslate = false;
 
                 CrawlerManager manager = new CrawlerManager(
                         maxThreads,
-                        maxDepth,
-                        sourceLanguage,
-                        targetLanguage,
-                        shouldTranslate
+                        maxDepth
                 );
 
-                Collection<Webpage> results = manager.startCrawling(url);
+                manager.startCrawling(url);
+                Collection<Webpage> results = manager.getCrawledPages().values();
+
 
                 MDFileOperator fileOperator = null;
                 try {

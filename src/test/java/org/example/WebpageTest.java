@@ -14,20 +14,16 @@ class WebpageTest {
     private Webpage webpage;
     private static final String TEST_URL = "https://example.com";
     private static final int TEST_DEPTH = 2;
-    private static final String SOURCE_LANG = "DE";
-    private static final String TARGET_LANG = "EN";
 
     @BeforeEach
     void setUp() {
-        webpage = new Webpage(TEST_URL, TEST_DEPTH, TARGET_LANG, SOURCE_LANG);
+        webpage = new Webpage(TEST_URL, TEST_DEPTH);
     }
 
     @Test
     void constructorShouldInitialize() {
         assertEquals(TEST_URL, webpage.getUrl());
         assertEquals(TEST_DEPTH, webpage.getDepth());
-        assertEquals(TARGET_LANG, webpage.getTargetLanguage());
-        assertEquals(SOURCE_LANG, webpage.getSourceLanguage());
         assertTrue(webpage.getVisitedUrls().isEmpty());
         assertTrue(webpage.getBrokenLinks().isEmpty());
         assertTrue(webpage.getLinksFromWebpage().isEmpty());

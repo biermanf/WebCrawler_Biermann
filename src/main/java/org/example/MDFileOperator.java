@@ -35,9 +35,7 @@ public class MDFileOperator {
     private void buildMainData(Webpage webpage)
     {
         String buildMainData = new BoldText("Website: " + webpage.getUrl()) + "\n" +
-                new Text("Depth: " + webpage.getDepth()) + "\n" +
-                new Text("Source Language: " + webpage.getSourceLanguage()) + "\n" +
-                new Text("Target Language: " + webpage.getTargetLanguage()) + "\n";
+                new Text("Depth: " + webpage.getDepth()) + "\n";
         try {
             fileWriter.write(buildMainData);
         } catch (IOException e) {

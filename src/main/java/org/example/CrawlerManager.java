@@ -1,61 +1,86 @@
 package org.example;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class CrawlerManager {
-    private final ThreadPoolManager threadPoolManager;
-    private final ConcurrentHashSet<String> visitedUrls;
+    private final ExecutorService executorService;
     private final ConcurrentHashMap<String, Webpage> crawledPages;
+    private final ConcurrentHashSet<String> visitedUrls;
     private final AtomicInteger activeThreads;
+    private final JsoupDocumentFetcher documentFetcher;
     private final int maxDepth;
-    private final String sourceLanguage;
-    private final String targetLanguage;
-    private final boolean shouldTranslate;
 
-
-    public CrawlerManager(int maxThreads, int maxDepth,
-                          String sourceLanguage, String targetLanguage,boolean shouldTranslate
-    ) {
-        this.threadPoolManager = new ThreadPoolManager(maxThreads);
-        this.visitedUrls = new ConcurrentHashSet<>();
-        this.crawledPages = new ConcurrentHashMap<>();
-        this.activeThreads = new AtomicInteger(0);
+    public CrawlerManager(int maxDepth, int threadPoolSize) {
         this.maxDepth = maxDepth;
-        this.sourceLanguage = sourceLanguage;
-        this.targetLanguage = targetLanguage;
-        this.shouldTranslate = shouldTranslate;
-
+        this.executorService = Executors.newFixedThreadPool(threadPoolSize);
+        this.crawledPages = new ConcurrentHashMap<>();
+        this.visitedUrls = new ConcurrentHashSet<>();
+        this.activeThreads = new AtomicInteger(0);
+        this.documentFetcher = new DefaultJsoupDocumentFetcher(); // Standard-Implementierung
     }
 
-    public Collection<Webpage> startCrawling(String startUrl) {
-        CountDownLatch startLatch = new CountDownLatch(1);
+    // Überladener Konstruktor für benutzerdefinierte JsoupDocumentFetcher
+    public CrawlerManager(int maxDepth, int threadPoolSize, JsoupDocumentFetcher documentFetcher) {
+        this.maxDepth = maxDepth;
+        this.executorService = Executors.newFixedThreadPool(threadPoolSize);
+        this.crawledPages = new ConcurrentHashMap<>();
+        this.visitedUrls = new ConcurrentHashSet<>();
+        this.activeThreads = new AtomicInteger(0);
+        this.documentFetcher = documentFetcher;
+    }
 
+    public void startCrawling(String startUrl) {
+        CountDownLatch initialLatch = new CountDownLatch(1);
         Crawler initialCrawler = new Crawler(
-                startUrl, 0, maxDepth,
+                startUrl,
+                0,
+                maxDepth,
                 visitedUrls,
-                threadPoolManager.getExecutorService(),
+                executorService,
                 crawledPages,
-                startLatch,
+                initialLatch,
                 activeThreads,
-                sourceLanguage,
-                targetLanguage,
-                shouldTranslate
+                documentFetcher
         );
 
-        threadPoolManager.getExecutorService().submit(initialCrawler);
+        executorService.submit(initialCrawler);
 
         try {
-            while (activeThreads.get() > 0 || !startLatch.await(100, TimeUnit.MILLISECONDS)) {
+            while (!isProcessingComplete(initialLatch)) {
                 Thread.sleep(100);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            System.err.println("Error in Crawling: " + e.getMessage());
         } finally {
-            threadPoolManager.shutdown();
+            shutdownAndAwaitTermination();
         }
+    }
 
-        return crawledPages.values();
+    private boolean isProcessingComplete(CountDownLatch latch) {
+        return latch.getCount() == 0 && activeThreads.get() == 0;
+    }
+
+    private void shutdownAndAwaitTermination() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+                if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                    System.err.println("Thread cancellation failed");
+                }
+            }
+        } catch (InterruptedException ie) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public Map<String, Webpage> getCrawledPages() {
+        return new HashMap<>(crawledPages);
     }
 }

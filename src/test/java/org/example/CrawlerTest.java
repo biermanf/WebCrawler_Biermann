@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
@@ -24,6 +25,9 @@ class CrawlerTest {
     private ConcurrentHashMap<String, Webpage> crawledPages;
     private CountDownLatch depthLatch;
     private AtomicInteger activeThreads;
+    @Mock
+    private JsoupDocumentFetcher documentFetcher;
+
 
     @BeforeEach
     void setUp() {
@@ -42,31 +46,8 @@ class CrawlerTest {
                 crawledPages,
                 depthLatch,
                 activeThreads,
-                "de",
-                "en",
-                true
+                documentFetcher
         );
-    }
-
-    @Test
-    @DisplayName("Test Crawler Translation Disabled")
-    void testCrawlerWithTranslationDisabled() {
-        Crawler noTranslateCrawler = new Crawler(
-                "https://example.com",
-                0,
-                2,
-                visitedUrls,
-                executorService,
-                crawledPages,
-                depthLatch,
-                activeThreads,
-                "de",
-                "en",
-                false
-        );
-
-        assertNotNull(noTranslateCrawler);
-        assertEquals(false, getTranslateField(noTranslateCrawler));
     }
 
     @Test
@@ -81,9 +62,7 @@ class CrawlerTest {
                 crawledPages,
                 depthLatch,
                 activeThreads,
-                "de",
-                "en",
-                true
+                documentFetcher
         );
 
         depthCrawler.run();
@@ -102,9 +81,7 @@ class CrawlerTest {
                 crawledPages,
                 depthLatch,
                 activeThreads,
-                "de",
-                "en",
-                true
+                documentFetcher
         );
 
         invalidCrawler.run();
@@ -119,13 +96,4 @@ class CrawlerTest {
         assertTrue(crawledPages.isEmpty());
     }
 
-    private boolean getTranslateField(Crawler crawler) {
-        try {
-            Field field = Crawler.class.getDeclaredField("shouldTranslate");
-            field.setAccessible(true);
-            return (boolean) field.get(crawler);
-        } catch (Exception e) {
-            return true;
-        }
-    }
 }
